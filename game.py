@@ -10,6 +10,10 @@ Sky()
 EditorCamera() # Opcjonalne: pozwala na podgląd sceny
 AmbientLight(color=color.rgba(100, 100, 100, 255)) # Dodajemy trochę światła
 
+# --- LICZNIK TRAFIONYCH LATARNI ---
+latarnie_zniszczone = 0
+cel = 10  # Cel: zniszcz 10 latarni
+
 # --- DESZCZ ---
 class Deszcz(Entity):
     def __init__(self, intensity=0.5):
@@ -42,6 +46,9 @@ class Deszcz(Entity):
 
 deszcz = Deszcz()
 
+# --- UI LICZNIKA ---
+ui_text = Text(text='Latarnie zniszczone: 0 / 10', position=(-0.7, 0.45), scale=2, color=color.white)
+
 # --- KLASA LATARNI ---
 class Latarnia(Entity):
     def __init__(self, pos, id_num):
@@ -49,16 +56,52 @@ class Latarnia(Entity):
         super().__init__(model='cylinder', scale=(0.2, 4, 0.2), position=pos, color=color.black, collider='box')
         self.id = id_num
         self.czy_rozbita = False
+        self.czas_mrugania = 0
+        self.mruga = True
+        
         # Klosz - cel rzutu
         self.klosz = Entity(parent=self, model='sphere', y=1.1, scale=(2, 0.5, 2), color=color.white, collider='sphere')
+        
+        # Światło latarni (mrugające)
+        self.swiatlo = PointLight(parent=self, position=(0, 1.1, 0), color=color.yellow, intensity=1.5, range=10)
+
+    def update(self):
+        # Mruganie latarni (jeśli nie rozbita)
+        if not self.czy_rozbita and self.mruga:
+            self.czas_mrugania += time.dt()
+            # Mrugaj co 0.5 sekundy
+            if self.czas_mrugania > 0.5:
+                self.czas_mrugania = 0
+                # Przełączaj światło i kolor
+                if self.swiatlo.intensity > 0:
+                    self.swiatlo.intensity = 0
+                    self.klosz.color = color.dark_gray
+                else:
+                    self.swiatlo.intensity = 1.5
+                    self.klosz.color = color.white
 
     def trafienie(self):
+        global latarnie_zniszczone
+        
         if not self.czy_rozbita:
             self.czy_rozbita = True
+            self.mruga = False
+            latarnie_zniszczone += 1
+            
             # Tworzymy dziurę w latarni (zmniejszamy klosz i zmieniamy kolor)
             self.klosz.color = color.dark_gray
             self.klosz.scale = (1.8, 0.4, 1.8)  # Zmniejszenie rozmiaru
-            print(f"BUM! Latarnia nr {self.id} oberwała! Jest dziura!")
+            self.swiatlo.intensity = 0  # Wyłączamy światło
+            
+            # Aktualizujemy UI
+            ui_text.text = f'Latarnie zniszczone: {latarnie_zniszczone} / {cel}'
+            
+            print(f"BUM! Latarnia nr {self.id} oberwała! ({latarnie_zniszczone}/{cel})")
+            
+            # Sprawdzenie, czy gracz wygrał
+            if latarnie_zniszczone >= cel:
+                ui_text.text = f'WYGRANA! Zniszczyłeś {latarnie_zniszczone} latarni!'
+                ui_text.color = color.green
 
 # --- GENEROWANIE 36 LATARNI ---
 latarnie = []
